@@ -1,0 +1,621 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
+
+Session altered.
+
+SQL> ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+
+Session altered.
+
+SQL> 
+SQL> -- step 4: populate the object tables (3-4 objects per table)
+SQL> -- Load order follows the REFs: a row must exist before anything
+SQL> -- points at it (advisors -> clients -> accounts -> securities -> price records -> orders -> fills -> holdings)
+SQL> 
+SQL> -- Advisors (BR 5)
+SQL> INSERT INTO Advisor_obj_tab VALUES (
+  2      Advisor_t(
+  3          1,
+  4          'Laura Bennett',
+  5          'laura.bennett@brokersinteractive.ca',
+  6          '416-555-0101',
+  7          'REG-10021'
+  8      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Advisor_obj_tab VALUES (
+  2      Advisor_t(
+  3          2,
+  4          'Marcus Chen',
+  5          'marcus.chen@brokersinteractive.ca',
+  6          '416-555-0102',
+  7          'REG-10034'
+  8      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Advisor_obj_tab VALUES (
+  2      Advisor_t(
+  3          3,
+  4          'Priya Nair',
+  5          'priya.nair@brokersinteractive.ca',
+  6          '416-555-0103',
+  7          'REG-10057'
+  8      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- Clients (BR 2, 3, 4): all 18+, exactly one advisor each, risk tolerance is LOW, MEDIUM or HIGH
+SQL> INSERT INTO Client_obj_tab VALUES (
+  2      Client_t(
+  3          1,
+  4          'Daniel Foster',
+  5          DATE '1980-05-14',
+  6          'daniel.foster@mail.com',
+  7          '416-555-0111',
+  8          '12 Maple St, Toronto',
+  9          'MEDIUM',
+ 10          (SELECT REF(a) FROM Advisor_obj_tab a WHERE a.advisorNo = 1)
+ 11      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Client_obj_tab VALUES (
+  2      Client_t(
+  3          2,
+  4          'Sofia Ramirez',
+  5          DATE '1992-11-02',
+  6          'sofia.ramirez@mail.com',
+  7          '416-555-0112',
+  8          '88 Queen St W, Toronto',
+  9          'HIGH',
+ 10          (SELECT REF(a) FROM Advisor_obj_tab a WHERE a.advisorNo = 1)
+ 11      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Client_obj_tab VALUES (
+  2      Client_t(
+  3          3,
+  4          'James Okafor',
+  5          DATE '1975-07-23',
+  6          'james.okafor@mail.com',
+  7          '416-555-0113',
+  8          '5 Bay St, Toronto',
+  9          'LOW',
+ 10          (SELECT REF(a) FROM Advisor_obj_tab a WHERE a.advisorNo = 2)
+ 11      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Client_obj_tab VALUES (
+  2      Client_t(
+  3          4,
+  4          'Emily Tran',
+  5          DATE '2001-01-30',
+  6          'emily.tran@mail.com',
+  7          '416-555-0114',
+  8          '230 King St E, Toronto',
+  9          'MEDIUM',
+ 10          (SELECT REF(a) FROM Advisor_obj_tab a WHERE a.advisorNo = 3)
+ 11      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- Accounts (BR 1, 6): type is CASH, TFSA or RRSP; status is ACTIVE, FROZEN or CLOSED; every client owns at least one
+SQL> INSERT INTO Account_obj_tab VALUES (
+  2      Account_t(
+  3          1001,
+  4          DATE '2020-02-10',
+  5          25000.00,
+  6          'TFSA',
+  7          'ACTIVE',
+  8          (SELECT REF(c) FROM Client_obj_tab c WHERE c.clientNo = 1)
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Account_obj_tab VALUES (
+  2      Account_t(
+  3          1002,
+  4          DATE '2021-06-15',
+  5          8500.50,
+  6          'CASH',
+  7          'ACTIVE',
+  8          (SELECT REF(c) FROM Client_obj_tab c WHERE c.clientNo = 2)
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Account_obj_tab VALUES (
+  2      Account_t(
+  3          1003,
+  4          DATE '2019-09-01',
+  5          120000.00,
+  6          'RRSP',
+  7          'ACTIVE',
+  8          (SELECT REF(c) FROM Client_obj_tab c WHERE c.clientNo = 3)
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Account_obj_tab VALUES (
+  2      Account_t(
+  3          1004,
+  4          DATE '2023-03-20',
+  5          0.00,
+  6          'CASH',
+  7          'FROZEN',
+  8          (SELECT REF(c) FROM Client_obj_tab c WHERE c.clientNo = 4)
+  9      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- Common stocks (BR 9, 10, 17): trading status ACTIVE, HALTED or DELISTED
+SQL> INSERT INTO CommonStock_obj_tab VALUES (
+  2      CommonStock_t(
+  3          'AAPL',
+  4          'Apple Inc.',
+  5          'ACTIVE',
+  6          15000000000,
+  7          6.43
+  8      ));
+
+1 row inserted.
+
+SQL> INSERT INTO CommonStock_obj_tab VALUES (
+  2      CommonStock_t(
+  3          'MSFT',
+  4          'Microsoft Corp.',
+  5          'ACTIVE',
+  6          7430000000,
+  7          11.80
+  8      ));
+
+1 row inserted.
+
+SQL> INSERT INTO CommonStock_obj_tab VALUES (
+  2      CommonStock_t(
+  3          'TSLA',
+  4          'Tesla Inc.',
+  5          'HALTED',
+  6          3170000000,
+  7          3.65
+  8      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- ETFs (BR 9, 10, 19): URTH is DELISTED so all three statuses appear
+SQL> INSERT INTO ETF_obj_tab VALUES (
+  2      ETF_t(
+  3          'QQQ',
+  4          'Invesco QQQ Trust',
+  5          'ACTIVE',
+  6          'NASDAQ-100',
+  7          0.0020,
+  8          DATE '1999-03-10'
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO ETF_obj_tab VALUES (
+  2      ETF_t(
+  3          'VTI',
+  4          'Vanguard Total Stock Market',
+  5          'ACTIVE',
+  6          'CRSP US Total Market',
+  7          0.0003,
+  8          DATE '2001-05-24'
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO ETF_obj_tab VALUES (
+  2      ETF_t(
+  3          'URTH',
+  4          'iShares MSCI World ETF',
+  5          'DELISTED',
+  6          'MSCI World',
+  7          0.0024,
+  8          DATE '2012-01-10'
+  9      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- Price records (BR 21): one record per ACTIVE security for the trading day 2026-10-30 (TSLA is halted and URTH delisted, so none)
+SQL> INSERT INTO PriceRecord_obj_tab VALUES (
+  2      PriceRecord_t(
+  3          1,
+  4          DATE '2026-10-30',
+  5          226.10,
+  6          229.10,
+  7          225.80,
+  8          228.45,
+  9          48210000,
+ 10          (SELECT REF(s) FROM CommonStock_obj_tab s WHERE s.tickerSymbol = 'AAPL')
+ 11      ));
+
+1 row inserted.
+
+SQL> INSERT INTO PriceRecord_obj_tab VALUES (
+  2      PriceRecord_t(
+  3          2,
+  4          DATE '2026-10-30',
+  5          414.00,
+  6          415.30,
+  7          410.90,
+  8          411.20,
+  9          21530000,
+ 10          (SELECT REF(s) FROM CommonStock_obj_tab s WHERE s.tickerSymbol = 'MSFT')
+ 11      ));
+
+1 row inserted.
+
+SQL> INSERT INTO PriceRecord_obj_tab VALUES (
+  2      PriceRecord_t(
+  3          3,
+  4          DATE '2026-10-30',
+  5          444.20,
+  6          447.90,
+  7          443.10,
+  8          446.85,
+  9          36870000,
+ 10          (SELECT REF(e) FROM ETF_obj_tab e WHERE e.tickerSymbol = 'QQQ')
+ 11      ));
+
+1 row inserted.
+
+SQL> INSERT INTO PriceRecord_obj_tab VALUES (
+  2      PriceRecord_t(
+  3          4,
+  4          DATE '2026-10-30',
+  5          271.40,
+  6          272.05,
+  7          270.10,
+  8          270.95,
+  9          3410000,
+ 10          (SELECT REF(e) FROM ETF_obj_tab e WHERE e.tickerSymbol = 'VTI')
+ 11      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- Orders (BR 7, 8, 11, 23-28): only ACTIVE accounts, only ACTIVE securities; limit price only on LIMIT orders; order 5002 was
+SQL> -- entered by the client herself, so no advisor is recorded (0..1)
+SQL> INSERT INTO Order_obj_tab VALUES (
+  2      Order_t(
+  3          5001,
+  4          'BUY',
+  5          'LIMIT',
+  6          100,
+  7          TIMESTAMP '2026-10-26 09:35:00',
+  8          9.99,
+  9          'FILLED',
+ 10          225.50,
+ 11          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1001),
+ 12          (SELECT REF(s) FROM CommonStock_obj_tab s WHERE s.tickerSymbol = 'AAPL'),
+ 13          (SELECT REF(v) FROM Advisor_obj_tab v WHERE v.advisorNo = 1)
+ 14      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Order_obj_tab VALUES (
+  2      Order_t(
+  3          5002,
+  4          'BUY',
+  5          'LIMIT',
+  6          50,
+  7          TIMESTAMP '2026-10-26 10:05:00',
+  8          9.99,
+  9          'PARTIALLY_FILLED',
+ 10          410.40,
+ 11          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1002),
+ 12          (SELECT REF(s) FROM CommonStock_obj_tab s WHERE s.tickerSymbol = 'MSFT'),
+ 13          NULL
+ 14      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Order_obj_tab VALUES (
+  2      Order_t(
+  3          5003,
+  4          'SELL',
+  5          'LIMIT',
+  6          200,
+  7          TIMESTAMP '2026-10-27 14:20:00',
+  8          14.99,
+  9          'OPEN',
+ 10          450.00,
+ 11          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1003),
+ 12          (SELECT REF(e) FROM ETF_obj_tab e WHERE e.tickerSymbol = 'QQQ'),
+ 13          (SELECT REF(v) FROM Advisor_obj_tab v WHERE v.advisorNo = 2)
+ 14      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Order_obj_tab VALUES (
+  2      Order_t(
+  3          5004,
+  4          'BUY',
+  5          'MARKET',
+  6          75,
+  7          TIMESTAMP '2026-10-28 11:45:00',
+  8          9.99,
+  9          'FILLED',
+ 10          NULL,
+ 11          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1003),
+ 12          (SELECT REF(e) FROM ETF_obj_tab e WHERE e.tickerSymbol = 'VTI'),
+ 13          (SELECT REF(v) FROM Advisor_obj_tab v WHERE v.advisorNo = 2)
+ 14      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- Fills (BR 26, 29-32): buy-limit fills at or below the limit price; total filled never exceeds the quantity ordered (5002: 42 of 50)
+SQL> INSERT INTO Fill_obj_tab VALUES (
+  2      Fill_t(
+  3          9001,
+  4          100,
+  5          225.30,
+  6          TIMESTAMP '2026-10-26 09:36:12',
+  7          (SELECT REF(o) FROM Order_obj_tab o WHERE o.orderNo = 5001)
+  8      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Fill_obj_tab VALUES (
+  2      Fill_t(
+  3          9002,
+  4          30,
+  5          410.15,
+  6          TIMESTAMP '2026-10-26 10:05:40',
+  7          (SELECT REF(o) FROM Order_obj_tab o WHERE o.orderNo = 5002)
+  8      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Fill_obj_tab VALUES (
+  2      Fill_t(
+  3          9003,
+  4          12,
+  5          410.40,
+  6          TIMESTAMP '2026-10-26 10:07:02',
+  7          (SELECT REF(o) FROM Order_obj_tab o WHERE o.orderNo = 5002)
+  8      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Fill_obj_tab VALUES (
+  2      Fill_t(
+  3          9004,
+  4          75,
+  5          269.80,
+  6          TIMESTAMP '2026-10-28 11:46:05',
+  7          (SELECT REF(o) FROM Order_obj_tab o WHERE o.orderNo = 5004)
+  8      ));
+
+1 row inserted.
+
+SQL> 
+SQL> -- Holdings (BR 28, 34, 35): the MSFT average cost is the weighteaverage of fills 9002 and 9003; the QQQ holding (400) covers the
+SQL> -- open sell order for 200
+SQL> INSERT INTO Holding_obj_tab VALUES (
+  2      Holding_t(
+  3          1,
+  4          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1001),
+  5          (SELECT REF(s) FROM CommonStock_obj_tab s WHERE s.tickerSymbol = 'AAPL'),
+  6          350,
+  7          190.75,
+  8          DATE '2020-03-02'
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Holding_obj_tab VALUES (
+  2      Holding_t(
+  3          2,
+  4          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1002),
+  5          (SELECT REF(s) FROM CommonStock_obj_tab s WHERE s.tickerSymbol = 'MSFT'),
+  6          42,
+  7          410.22,
+  8          DATE '2026-10-26'
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Holding_obj_tab VALUES (
+  2      Holding_t(
+  3          3,
+  4          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1003),
+  5          (SELECT REF(e) FROM ETF_obj_tab e WHERE e.tickerSymbol = 'QQQ'),
+  6          400,
+  7          380.10,
+  8          DATE '2019-11-18'
+  9      ));
+
+1 row inserted.
+
+SQL> INSERT INTO Holding_obj_tab VALUES (
+  2      Holding_t(
+  3          4,
+  4          (SELECT REF(a) FROM Account_obj_tab a WHERE a.accountNo = 1003),
+  5          (SELECT REF(e) FROM ETF_obj_tab e WHERE e.tickerSymbol = 'VTI'),
+  6          275,
+  7          245.60,
+  8          DATE '2023-01-09'
+  9      ));
+
+1 row inserted.
+
+SQL> 
+SQL> COMMIT;
+
+Commit complete.
+
+SQL> 
+SQL> SPOOL OFF
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
+
+Session altered.
+
+SQL> ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+
+Session altered.
+
+SQL> 
+SQL> -- step 5: demonstrate that every object table is populated
+SQL> -- Tables that hold REFs are displayed by following the REFs with dot notation, not with joins.
+SQL> COLUMN name              FORMAT A28
+SQL> COLUMN email             FORMAT A36
+SQL> COLUMN phone             FORMAT A12
+SQL> COLUMN address           FORMAT A24
+SQL> COLUMN registrationNo    FORMAT A14
+SQL> COLUMN client            FORMAT A15
+SQL> COLUMN advisor           FORMAT A15
+SQL> COLUMN ticker            FORMAT A6
+SQL> COLUMN acct_type         FORMAT A9
+SQL> COLUMN order_type        FORMAT A10
+SQL> COLUMN side              FORMAT A4
+SQL> COLUMN status            FORMAT A16
+SQL> COLUMN trackedIndex      FORMAT A22
+SQL> COLUMN sharesOutstanding FORMAT 99,999,999,999
+SQL> COLUMN expenseRatio      FORMAT 0.0000
+SQL> 
+SQL> -- Advisor_obj_tab
+SQL> SELECT a.advisorNo, a.name, a.email, a.phone, a.registrationNo
+  2  FROM   Advisor_obj_tab a
+  3  ORDER  BY a.advisorNo;
+
+ ADVISORNO NAME                         EMAIL                                PHONE        REGISTRATIONNO
+---------- ---------------------------- ------------------------------------ ------------ --------------
+         1 Laura Bennett                laura.bennett@brokersinteractive.ca  416-555-0101 REG-10021     
+         2 Marcus Chen                  marcus.chen@brokersinteractive.ca    416-555-0102 REG-10034     
+         3 Priya Nair                   priya.nair@brokersinteractive.ca     416-555-0103 REG-10057     
+
+SQL> 
+SQL> -- Client_obj_tab (follows advisorRef)
+SQL> SELECT c.clientNo, c.name, c.dateOfBirth, c.email, c.phone, c.address,
+  2      c.riskTolerance, c.advisorRef.name AS advisor
+  3  FROM   Client_obj_tab c
+  4  ORDER  BY c.clientNo;
+
+  CLIENTNO NAME                         DATEOFBIR EMAIL                                PHONE        ADDRESS                  RISKTOLERANCE        ADVISOR        
+---------- ---------------------------- --------- ------------------------------------ ------------ ------------------------ -------------------- ---------------
+         1 Daniel Foster                14-MAY-80 daniel.foster@mail.com               416-555-0111 12 Maple St, Toronto     MEDIUM               Laura Bennett  
+         2 Sofia Ramirez                02-NOV-92 sofia.ramirez@mail.com               416-555-0112 88 Queen St W, Toronto   HIGH                 Laura Bennett  
+         3 James Okafor                 23-JUL-75 james.okafor@mail.com                416-555-0113 5 Bay St, Toronto        LOW                  Marcus Chen    
+         4 Emily Tran                   30-JAN-01 emily.tran@mail.com                  416-555-0114 230 King St E, Toronto   MEDIUM               Priya Nair     
+
+SQL> 
+SQL> -- Account_obj_tab (follows clientRef)
+SQL> SELECT a.accountNo, a.openingDate, a.cashBalance, a.type AS acct_type,
+  2      a.status, a.clientRef.name AS client
+  3  FROM   Account_obj_tab a
+  4  ORDER  BY a.accountNo;
+
+ ACCOUNTNO OPENINGDA CASHBALANCE ACCT_TYPE STATUS           CLIENT         
+---------- --------- ----------- --------- ---------------- ---------------
+      1001 10-FEB-20       25000 TFSA      ACTIVE           Daniel Foster  
+      1002 15-JUN-21      8500.5 CASH      ACTIVE           Sofia Ramirez  
+      1003 01-SEP-19      120000 RRSP      ACTIVE           James Okafor   
+      1004 20-MAR-23           0 CASH      FROZEN           Emily Tran     
+
+SQL> 
+SQL> -- CommonStock_obj_tab
+SQL> SELECT s.tickerSymbol, s.name, s.tradingStatus, s.sharesOutstanding,
+  2      s.earningsPerShare12M
+  3  FROM   CommonStock_obj_tab s
+  4  ORDER  BY s.tickerSymbol;
+
+TICKER NAME                         TRADINGSTATUS        SHARESOUTSTANDING EARNINGSPERSHARE12M
+------ ---------------------------- -------------------- ----------------- -------------------
+AAPL   Apple Inc.                   ACTIVE                  15,000,000,000                6.43
+MSFT   Microsoft Corp.              ACTIVE                   7,430,000,000                11.8
+TSLA   Tesla Inc.                   HALTED                   3,170,000,000                3.65
+
+SQL> 
+SQL> -- ETF_obj_tab
+SQL> SELECT e.tickerSymbol, e.name, e.tradingStatus, e.trackedIndex,
+  2      e.expenseRatio, e.inceptionDate
+  3  FROM   ETF_obj_tab e
+  4  ORDER  BY e.tickerSymbol;
+
+TICKER NAME                         TRADINGSTATUS        TRACKEDINDEX           EXPENSERATIO INCEPTION
+------ ---------------------------- -------------------- ---------------------- ------------ ---------
+QQQ    Invesco QQQ Trust            ACTIVE               NASDAQ-100                   0.0020 10-MAR-99
+URTH   iShares MSCI World ETF       DELISTED             MSCI World                   0.0024 10-JAN-12
+VTI    Vanguard Total Stock Market  ACTIVE               CRSP US Total Market         0.0003 24-MAY-01
+
+SQL> 
+SQL> -- PriceRecord_obj_tab (follows securityRef into either subtype table)
+SQL> SELECT p.priceRecordNo, p.securityRef.tickerSymbol AS ticker, p.tradingDate,
+  2      p.openPrice, p.highPrice, p.lowPrice, p.closePrice, p.volume
+  3  FROM   PriceRecord_obj_tab p
+  4  ORDER  BY p.priceRecordNo;
+
+PRICERECORDNO TICKER TRADINGDA  OPENPRICE  HIGHPRICE   LOWPRICE CLOSEPRICE     VOLUME
+------------- ------ --------- ---------- ---------- ---------- ---------- ----------
+            1 AAPL   30-OCT-26      226.1      229.1      225.8     228.45   48210000
+            2 MSFT   30-OCT-26        414      415.3      410.9      411.2   21530000
+            3 QQQ    30-OCT-26      444.2      447.9      443.1     446.85   36870000
+            4 VTI    30-OCT-26      271.4     272.05      270.1     270.95    3410000
+
+SQL> 
+SQL> -- Order_obj_tab (follows accountRef, securityRef and advisorRef)
+SQL> SELECT o.orderNo, o.side, o.type AS order_type, o.quantity, o.timePlaced,
+  2      o.commission, o.status, o.limitPrice,
+  3      o.accountRef.accountNo     AS account_no,
+  4      o.securityRef.tickerSymbol AS ticker,
+  5      o.advisorRef.name          AS advisor
+  6  FROM   Order_obj_tab o
+  7  ORDER  BY o.orderNo;
+
+   ORDERNO SIDE ORDER_TYPE   QUANTITY TIMEPLACED                      COMMISSION STATUS           LIMITPRICE ACCOUNT_NO TICKER ADVISOR        
+---------- ---- ---------- ---------- ------------------------------- ---------- ---------------- ---------- ---------- ------ ---------------
+      5001 BUY  LIMIT             100 26-OCT-26 09.35.00.000000000 AM       9.99 FILLED                225.5       1001 AAPL   Laura Bennett  
+      5002 BUY  LIMIT              50 26-OCT-26 10.05.00.000000000 AM       9.99 PARTIALLY_FILLED      410.4       1002 MSFT                  
+      5003 SELL LIMIT             200 27-OCT-26 02.20.00.000000000 PM      14.99 OPEN                    450       1003 QQQ    Marcus Chen    
+      5004 BUY  MARKET             75 28-OCT-26 11.45.00.000000000 AM       9.99 FILLED                            1003 VTI    Marcus Chen    
+
+SQL> 
+SQL> -- Fill_obj_tab (follows orderRef, then the order's securityRef)
+SQL> SELECT f.fillNo, f.orderRef.orderNo AS order_no,
+  2      f.orderRef.securityRef.tickerSymbol AS ticker,
+  3      f.quantity, f.price, f.time AS fill_time
+  4  FROM   Fill_obj_tab f
+  5  ORDER  BY f.fillNo;
+
+    FILLNO   ORDER_NO TICKER   QUANTITY      PRICE FILL_TIME                      
+---------- ---------- ------ ---------- ---------- -------------------------------
+      9001       5001 AAPL          100      225.3 26-OCT-26 09.36.12.000000000 AM
+      9002       5002 MSFT           30     410.15 26-OCT-26 10.05.40.000000000 AM
+      9003       5002 MSFT           12      410.4 26-OCT-26 10.07.02.000000000 AM
+      9004       5004 VTI            75      269.8 28-OCT-26 11.46.05.000000000 AM
+
+SQL> 
+SQL> -- Holding_obj_tab (follows accountRef -> clientRef, and securityRef)
+SQL> SELECT h.holdingId, h.accountRef.accountNo AS account_no,
+  2      h.accountRef.clientRef.name AS client,
+  3      h.securityRef.tickerSymbol  AS ticker,
+  4      h.quantity, h.averageCostPerShare, h.dateFirstBought
+  5  FROM   Holding_obj_tab h
+  6  ORDER  BY h.holdingId;
+
+ HOLDINGID ACCOUNT_NO CLIENT          TICKER   QUANTITY AVERAGECOSTPERSHARE DATEFIRST
+---------- ---------- --------------- ------ ---------- ------------------- ---------
+         1       1001 Daniel Foster   AAPL          350              190.75 02-MAR-20
+         2       1002 Sofia Ramirez   MSFT           42              410.22 26-OCT-26
+         3       1003 James Okafor    QQQ           400               380.1 18-NOV-19
+         4       1003 James Okafor    VTI           275               245.6 09-JAN-23
+
+SQL> 
+SQL> SPOOL OFF

@@ -1,0 +1,171 @@
+SQL> SET LINESIZE 200
+SQL> SET PAGESIZE 100
+SQL> ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
+
+Session altered.
+
+SQL> ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+
+Session altered.
+
+SQL> 
+SQL> -- Working with Your Database: 9 queries
+SQL> -- Every query reads more than one object table by following REFs with dot notation (no joins, no nested queries).
+SQL> 
+SQL> COLUMN client          FORMAT A15
+SQL> COLUMN advisor         FORMAT A15
+SQL> COLUMN ticker          FORMAT A6
+SQL> COLUMN security_name   FORMAT A28
+SQL> COLUMN riskTolerance   FORMAT A13
+SQL> COLUMN acct_type       FORMAT A9
+SQL> COLUMN status          FORMAT A16
+SQL> COLUMN side            FORMAT A4
+SQL> COLUMN order_type      FORMAT A10
+SQL> COLUMN adult           FORMAT A5
+SQL> COLUMN can_trade       FORMAT A9
+SQL> COLUMN covers_10k      FORMAT A10
+SQL> COLUMN price_ok        FORMAT A8
+SQL> COLUMN tracked_index   FORMAT A22
+SQL> COLUMN pct_change      FORMAT 990.00
+SQL> COLUMN expense_ratio   FORMAT 0.0000
+SQL> 
+SQL> -- Q1: query specified by the instructor
+SQL> -- instructor's query
+SQL> 
+SQL> -- Q2: MAP method (PriceRecord_t.percentChange) with ORDER BY VALUE
+SQL> -- Daily price records ranked from biggest loser to biggest gainer (BR 21, 22); follows securityRef into both security tables
+SQL> SELECT p.securityRef.tickerSymbol AS ticker, p.securityRef.name AS security_name,
+  2      p.tradingDate, p.openPrice, p.closePrice,
+  3      ROUND(p.percentChange(), 2) AS pct_change
+  4  FROM   PriceRecord_obj_tab p
+  5  ORDER  BY VALUE(p);
+
+TICKER SECURITY_NAME                TRADINGDAT  OPENPRICE CLOSEPRICE PCT_CHANGE
+------ ---------------------------- ---------- ---------- ---------- ----------
+MSFT   Microsoft Corp.              2026-10-30        414      411.2      -0.68
+VTI    Vanguard Total Stock Market  2026-10-30      271.4     270.95      -0.17
+QQQ    Invesco QQQ Trust            2026-10-30      444.2     446.85       0.60
+AAPL   Apple Inc.                   2026-10-30      226.1     228.45       1.04
+
+SQL> 
+SQL> -- Q3: ORDER method (Client_t.compareRisk) with ORDER BY VALUE
+SQL> -- Clients ranked by risk tolerance (LOW < MEDIUM < HIGH), older client first within the same level; follows advisorRef
+SQL> SELECT c.name AS client, c.riskTolerance, c.dateOfBirth,
+  2      c.advisorRef.name AS advisor
+  3  FROM   Client_obj_tab c
+  4  ORDER  BY VALUE(c);
+
+CLIENT          RISKTOLERANCE DATEOFBIRT ADVISOR        
+--------------- ------------- ---------- ---------------
+James Okafor    LOW           1975-07-23 Marcus Chen    
+Daniel Foster   MEDIUM        1980-05-14 Laura Bennett  
+Emily Tran      MEDIUM        2001-01-30 Priya Nair     
+Sofia Ramirez   HIGH          1992-11-02 Laura Bennett  
+
+SQL> 
+SQL> -- Q4: overridden method (Security_t.yearlyFee, overridden in CommonStock_t and ETF_t)
+SQL> -- Yearly fee on each position: securityRef is declared as REF Security_t, so Oracle runs the yearlyFee of each row's
+SQL> -- actual subtype (stocks pay no fee, ETFs pay amount x expense ratio, BR 20)
+SQL> SELECT h.accountRef.clientRef.name AS client,
+  2      h.securityRef.tickerSymbol AS ticker,
+  3      h.quantity * h.averageCostPerShare AS invested,
+  4      ROUND(h.securityRef.yearlyFee(h.quantity * h.averageCostPerShare), 2) AS yearly_fee
+  5  FROM   Holding_obj_tab h
+  6  ORDER  BY h.holdingId;
+
+CLIENT          TICKER   INVESTED YEARLY_FEE
+--------------- ------ ---------- ----------
+Daniel Foster   AAPL      66762.5          0
+Sofia Ramirez   MSFT     17229.24          0
+James Okafor    QQQ        152040     304.08
+James Okafor    VTI         67540      20.26
+
+SQL> 
+SQL> -- Q5: order book sorted by unfilled shares (Order_t's MAP method remainingQuantity)
+SQL> -- filledQuantity() reads Fill_obj_tab; client is reached through accountRef -> clientRef (BR 29, 32, 33)
+SQL> SELECT o.orderNo, o.status,
+  2      o.accountRef.clientRef.name AS client,
+  3      o.securityRef.tickerSymbol AS ticker,
+  4      o.quantity, o.filledQuantity() AS filled, o.remainingQuantity() AS remaining
+  5  FROM   Order_obj_tab o
+  6  ORDER  BY VALUE(o), o.orderNo;
+
+   ORDERNO STATUS           CLIENT          TICKER   QUANTITY     FILLED  REMAINING
+---------- ---------------- --------------- ------ ---------- ---------- ----------
+      5001 FILLED           Daniel Foster   AAPL          100        100          0
+      5004 FILLED           James Okafor    VTI            75         75          0
+      5002 PARTIALLY_FILLED Sofia Ramirez   MSFT           50         42          8
+      5003 OPEN             James Okafor    QQQ           200          0        200
+
+SQL> 
+SQL> -- Q6: trading eligibility of every account (BR 3, 7, 8)
+SQL> -- Methods called on the account and, through clientRef, on its owner; advisor reached through clientRef -> advisorRef
+SQL> SELECT a.accountNo, a.type AS acct_type, a.status,
+  2      a.clientRef.name AS client,
+  3      a.clientRef.isAdult() AS adult,
+  4      a.canPlaceOrder() AS can_trade,
+  5      a.coversCost(10000) AS covers_10k,
+  6      a.clientRef.advisorRef.name AS advisor
+  7  FROM   Account_obj_tab a
+  8  ORDER  BY a.accountNo;
+
+ ACCOUNTNO ACCT_TYPE STATUS           CLIENT          ADULT CAN_TRADE COVERS_10K ADVISOR        
+---------- --------- ---------------- --------------- ----- --------- ---------- ---------------
+      1001 TFSA      ACTIVE           Daniel Foster   TRUE  TRUE      TRUE       Laura Bennett  
+      1002 CASH      ACTIVE           Sofia Ramirez   TRUE  TRUE      FALSE      Laura Bennett  
+      1003 RRSP      ACTIVE           James Okafor    TRUE  TRUE      TRUE       Marcus Chen    
+      1004 CASH      FROZEN           Emily Tran      TRUE  FALSE     FALSE      Priya Nair     
+
+SQL> 
+SQL> -- Q7: fill audit: did every fill respect its order's limit price? (BR 26)
+SQL> -- Each fill's price is passed to priceAcceptable() on its order; follows orderRef -> accountRef -> clientRef
+SQL> SELECT f.fillNo, f.orderRef.orderNo AS order_no,
+  2      f.orderRef.side AS side, f.orderRef.type AS order_type,
+  3      f.orderRef.limitPrice AS limit_price, f.price AS fill_price,
+  4      f.orderRef.priceAcceptable(f.price) AS price_ok,
+  5      f.orderRef.accountRef.clientRef.name AS client
+  6  FROM   Fill_obj_tab f
+  7  ORDER  BY f.fillNo;
+
+    FILLNO   ORDER_NO SIDE ORDER_TYPE LIMIT_PRICE FILL_PRICE PRICE_OK CLIENT         
+---------- ---------- ---- ---------- ----------- ---------- -------- ---------------
+      9001       5001 BUY  LIMIT            225.5      225.3 TRUE     Daniel Foster  
+      9002       5002 BUY  LIMIT            410.4     410.15 TRUE     Sofia Ramirez  
+      9003       5002 BUY  LIMIT            410.4      410.4 TRUE     Sofia Ramirez  
+      9004       5004 BUY  MARKET                      269.8 TRUE     James Okafor   
+
+SQL> 
+SQL> -- Q8: subtype details of every holding using TREAT (BR 17, 19)
+SQL> -- securityRef is a REF Security_t; TREAT exposes CommonStock_t or ETF_t attributes, and returns null for the other subtype
+SQL> SELECT h.accountRef.clientRef.name AS client,
+  2      h.securityRef.tickerSymbol AS ticker, h.quantity,
+  3      TREAT(h.securityRef AS REF CommonStock_t).earningsPerShare12M AS eps_12m,
+  4      TREAT(h.securityRef AS REF ETF_t).trackedIndex AS tracked_index,
+  5      TREAT(h.securityRef AS REF ETF_t).expenseRatio AS expense_ratio
+  6  FROM   Holding_obj_tab h
+  7  ORDER  BY h.holdingId;
+
+CLIENT          TICKER   QUANTITY    EPS_12M TRACKED_INDEX          EXPENSE_RATIO
+--------------- ------ ---------- ---------- ---------------------- -------------
+Daniel Foster   AAPL          350       6.43                                     
+Sofia Ramirez   MSFT           42       11.8                                     
+James Okafor    QQQ           400            NASDAQ-100                    0.0020
+James Okafor    VTI           275            CRSP US Total Market          0.0003
+
+SQL> 
+SQL> -- Q9: total invested per advisor across all of their clients' holdings (BR 4, 34, 35)
+SQL> -- One REF chain through four tables: holding -> account -> client -> advisor
+SQL> SELECT h.accountRef.clientRef.advisorRef.name AS advisor,
+  2      COUNT(*) AS positions,
+  3      SUM(h.quantity * h.averageCostPerShare) AS total_invested
+  4  FROM   Holding_obj_tab h
+  5  GROUP  BY h.accountRef.clientRef.advisorRef.name
+  6  ORDER  BY total_invested DESC;
+
+ADVISOR          POSITIONS TOTAL_INVESTED
+--------------- ---------- --------------
+Marcus Chen              2         219580
+Laura Bennett            2       83991.74
+
+SQL> 
+SQL> SPOOL OFF

@@ -1,0 +1,382 @@
+SQL> SET SQLBLANKLINES ON
+SQL> SET DEFINE OFF
+SQL> 
+SQL> 
+SQL> -- --------------------------------------- types ---------------------------------------
+SQL> CREATE OR REPLACE TYPE Advisor_t AS OBJECT (
+  2      advisorNo       NUMBER,
+  3      name            VARCHAR2(100),
+  4      email           VARCHAR2(100),
+  5      phone           VARCHAR2(20),
+  6      registrationNo  VARCHAR2(50)
+  7  );
+  8  /
+
+Type ADVISOR_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE Client_t AS OBJECT (
+  2      clientNo        NUMBER,
+  3      name            VARCHAR2(100),
+  4      dateOfBirth     DATE,
+  5      email           VARCHAR2(100),
+  6      phone           VARCHAR2(20),
+  7      address         VARCHAR2(200),
+  8      riskTolerance   VARCHAR2(20),
+  9      advisorRef      REF Advisor_t,
+ 10      MEMBER FUNCTION isAdult RETURN VARCHAR2,
+ 11      ORDER MEMBER FUNCTION compareRisk(other IN Client_t) RETURN INTEGER
+ 12  );
+ 13  /
+
+Type CLIENT_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE Account_t AS OBJECT (
+  2      accountNo       INTEGER,
+  3      openingDate     DATE,
+  4      cashBalance     NUMBER(12, 2),
+  5      type            VARCHAR2(20),
+  6      status          VARCHAR2(20),
+  7      clientRef       REF Client_t,
+  8      MEMBER FUNCTION canPlaceOrder RETURN VARCHAR2,
+  9      MEMBER FUNCTION coversCost(estimatedCost NUMBER) RETURN VARCHAR2
+ 10  );
+ 11  /
+
+Type ACCOUNT_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE Security_t AS OBJECT (
+  2      tickerSymbol    NVARCHAR2(6),
+  3      name            VARCHAR2(32),
+  4      tradingStatus   VARCHAR2(20),
+  5      MEMBER FUNCTION isTradable RETURN VARCHAR2,
+  6      NOT INSTANTIABLE MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER
+  7  ) NOT INSTANTIABLE NOT FINAL;
+  8  /
+
+Type SECURITY_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE CommonStock_t UNDER Security_t (
+  2      sharesOutstanding   INTEGER,
+  3      earningsPerShare12M NUMBER(8, 2),
+  4      OVERRIDING MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER
+  5  );
+  6  /
+
+Type COMMONSTOCK_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE ETF_t UNDER Security_t (
+  2      trackedIndex    VARCHAR2(100),
+  3      expenseRatio    NUMBER(5, 4),
+  4      inceptionDate   DATE,
+  5      OVERRIDING MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER
+  6  );
+  7  /
+
+Type ETF_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE Order_t AS OBJECT (
+  2      orderNo        INTEGER,
+  3      side           VARCHAR2(32),
+  4      type           VARCHAR2(32),
+  5      quantity       INTEGER,
+  6      timePlaced     TIMESTAMP,
+  7      commission     NUMBER(10, 2),
+  8      status         VARCHAR2(32),
+  9      limitPrice     NUMBER(10, 2),
+ 10      accountRef     REF Account_t,
+ 11      securityRef    REF Security_t,
+ 12      advisorRef     REF Advisor_t,
+ 13      MEMBER FUNCTION priceAcceptable(price NUMBER) RETURN VARCHAR2,
+ 14      MEMBER FUNCTION filledQuantity RETURN NUMBER,
+ 15      MAP MEMBER FUNCTION remainingQuantity RETURN NUMBER
+ 16  );
+ 17  /
+
+Type ORDER_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE Fill_t AS OBJECT (
+  2      fillNo         INTEGER,
+  3      quantity       INTEGER,
+  4      price          NUMBER(10, 2),
+  5      time           TIMESTAMP,
+  6      orderRef       REF Order_t 
+  7  );
+  8  /
+
+Type FILL_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE Holding_t AS OBJECT (
+  2      holdingId           INTEGER,
+  3      accountRef          REF Account_t,
+  4      securityRef         REF Security_t,
+  5      quantity            INTEGER,
+  6      averageCostPerShare NUMBER(10, 2),
+  7      dateFirstBought     DATE,
+  8      MEMBER FUNCTION marketValue(latestClose NUMBER) RETURN NUMBER,
+  9      MEMBER FUNCTION hasSufficientShares(reqQuantity INTEGER) RETURN VARCHAR2
+ 10  );
+ 11  /
+
+Type HOLDING_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE PriceRecord_t AS OBJECT (
+  2      priceRecordNo	INTEGER,
+  3      tradingDate     DATE,
+  4      openPrice       NUMBER(10, 2),
+  5      highPrice       NUMBER(10, 2),
+  6      lowPrice        NUMBER(10, 2),
+  7      closePrice      NUMBER(10, 2),
+  8      volume		INTEGER,
+  9      securityRef     REF Security_t,
+ 10      MAP MEMBER FUNCTION percentChange RETURN NUMBER
+ 11  );
+ 12  /
+
+Type PRICERECORD_T compiled
+
+SQL> 
+SQL> 
+SQL> -- --------------------------------------- object tables ---------------------------------------
+SQL> CREATE TABLE Advisor_obj_tab OF Advisor_t (
+  2      CONSTRAINT pk_advisor PRIMARY KEY (advisorNo)
+  3  );
+
+Table ADVISOR_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE Client_obj_tab OF Client_t (
+  2      CONSTRAINT pk_client PRIMARY KEY (clientNo),
+  3      CONSTRAINT fk_client_advisor FOREIGN KEY (advisorRef) REFERENCES Advisor_obj_tab
+  4  );
+
+Table CLIENT_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE Account_obj_tab OF Account_t (
+  2      CONSTRAINT pk_account PRIMARY KEY (accountNo),
+  3      CONSTRAINT fk_account_client FOREIGN KEY (clientRef) REFERENCES Client_obj_tab
+  4  );
+
+Table ACCOUNT_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE CommonStock_obj_tab OF CommonStock_t (
+  2      CONSTRAINT pk_commonstock PRIMARY KEY (tickerSymbol)
+  3  );
+
+Table COMMONSTOCK_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE ETF_obj_tab OF ETF_t (
+  2      CONSTRAINT pk_etf PRIMARY KEY (tickerSymbol)
+  3  );
+
+Table ETF_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE PriceRecord_obj_tab OF PriceRecord_t (
+  2      CONSTRAINT pk_pricerecord PRIMARY KEY (priceRecordNo)
+  3  );
+
+Table PRICERECORD_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE Order_obj_tab OF Order_t (
+  2      CONSTRAINT pk_order PRIMARY KEY (orderNo),
+  3      CONSTRAINT fk_order_account FOREIGN KEY (accountRef) REFERENCES Account_obj_tab
+  4  );
+
+Table ORDER_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE Fill_obj_tab OF Fill_t (
+  2      CONSTRAINT pk_fill PRIMARY KEY (fillNo),
+  3      CONSTRAINT fk_fill_order FOREIGN KEY (orderRef) REFERENCES Order_obj_tab
+  4  );
+
+Table FILL_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE Holding_obj_tab OF Holding_t (
+  2      CONSTRAINT pk_holding PRIMARY KEY (holdingId),
+  3      CONSTRAINT fk_holding_account FOREIGN KEY (accountRef) REFERENCES Account_obj_tab
+  4  );
+
+Table HOLDING_OBJ_TAB created.
+
+SQL> 
+SQL> 
+SQL> -- --------------------------------------- type bodies ---------------------------------------
+SQL> CREATE OR REPLACE TYPE BODY Client_t AS
+  2      MEMBER FUNCTION isAdult RETURN VARCHAR2 IS
+  3          age NUMBER;
+  4      BEGIN
+  5          age := MONTHS_BETWEEN(SYSDATE, dateOfBirth) / 12;
+  6          IF age>= 18 THEN
+  7          RETURN 'TRUE';
+  8          ELSE
+  9          RETURN 'FALSE';
+ 10          END IF;
+ 11      END;
+ 12  
+ 13      ORDER MEMBER FUNCTION compareRisk(other IN Client_t) RETURN INTEGER IS
+ 14          myRank    INTEGER;
+ 15          otherRank INTEGER;
+ 16      BEGIN
+ 17          myRank 	 := CASE SELF.riskTolerance  WHEN 'LOW' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END;
+ 18          otherRank := CASE other.riskTolerance WHEN 'LOW' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END;
+ 19  
+ 20          IF    myRank < otherRank THEN RETURN -1;
+ 21          ELSIF myRank > otherRank THEN RETURN 1;
+ 22          ELSIF SELF.dateOfBirth < other.dateOfBirth THEN RETURN -1;
+ 23          ELSIF SELF.dateOfBirth > other.dateOfBirth THEN RETURN 1;
+ 24          ELSE  RETURN 0;
+ 25          END IF;
+ 26      END;
+ 27  END;
+ 28  /
+
+Type Body CLIENT_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE BODY Account_t AS
+  2      MEMBER FUNCTION canPlaceOrder RETURN VARCHAR2 IS
+  3      BEGIN
+  4          IF SELF.status = 'ACTIVE' THEN
+  5          RETURN 'TRUE';
+  6          ELSE
+  7          RETURN 'FALSE';
+  8          END IF;
+  9      END;
+ 10  
+ 11      MEMBER FUNCTION coversCost(estimatedCost NUMBER) RETURN VARCHAR2 IS
+ 12      BEGIN
+ 13          IF cashBalance >= estimatedCost THEN
+ 14          RETURN 'TRUE';
+ 15          ELSE
+ 16          RETURN 'FALSE';
+ 17          END IF;
+ 18      END;
+ 19  END;
+ 20  /
+
+Type Body ACCOUNT_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE BODY Security_t AS
+  2      MEMBER FUNCTION isTradable RETURN VARCHAR2 IS
+  3      BEGIN
+  4          IF SELF.tradingStatus = 'ACTIVE' THEN
+  5          RETURN 'TRUE';
+  6          ELSE
+  7          RETURN 'FALSE';
+  8          END IF;
+  9      END;
+ 10  END;
+ 11  /
+
+Type Body SECURITY_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE BODY CommonStock_t AS
+  2      OVERRIDING MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER IS
+  3      BEGIN
+  4          RETURN 0;
+  5      END;
+  6      END;
+  7  /
+
+Type Body COMMONSTOCK_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE BODY ETF_t AS
+  2      OVERRIDING MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER IS
+  3      BEGIN
+  4          RETURN amount * SELF.expenseRatio;
+  5      END;
+  6  END;
+  7  /
+
+Type Body ETF_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE BODY Order_t AS
+  2      MEMBER FUNCTION priceAcceptable(price NUMBER) RETURN VARCHAR2 IS
+  3      BEGIN
+  4          IF limitPrice IS NULL THEN
+  5          RETURN 'TRUE';
+  6          ELSIF SELF.side = 'BUY' AND price <= limitPrice THEN
+  7          RETURN 'TRUE';
+  8          ELSIF SELF.side = 'SELL' AND price >= limitPrice THEN
+  9          RETURN 'TRUE';
+ 10          ELSE
+ 11          RETURN 'FALSE';
+ 12          END IF;
+ 13      END;
+ 14  
+ 15      MEMBER FUNCTION filledQuantity RETURN NUMBER IS
+ 16          total NUMBER;
+ 17      BEGIN
+ 18          SELECT NVL(SUM(f.quantity), 0) INTO total
+ 19          FROM   Fill_obj_tab f
+ 20          WHERE  f.orderRef.orderNo = SELF.orderNo;
+ 21          RETURN total;
+ 22      END;
+ 23  
+ 24      MAP MEMBER FUNCTION remainingQuantity RETURN NUMBER IS
+ 25      BEGIN
+ 26          RETURN SELF.quantity - SELF.filledQuantity();
+ 27      END;
+ 28  END;
+ 29  /
+
+Type Body ORDER_T compiled
+
+SQL> 
+SQL> CREATE OR REPLACE TYPE BODY Holding_t AS
+  2      MEMBER FUNCTION marketValue(latestClose NUMBER) RETURN NUMBER IS
+  3      BEGIN
+  4          RETURN quantity * latestClose;
+  5      END;
+  6  
+  7      MEMBER FUNCTION hasSufficientShares(reqQuantity INTEGER) RETURN VARCHAR2 IS
+  8      BEGIN
+  9          IF quantity >= reqQuantity THEN
+ 10          RETURN 'TRUE';
+ 11          ELSE
+ 12          RETURN 'FALSE';
+ 13          END IF;
+ 14      END;
+ 15  END;
+ 16  /
+
+Type Body HOLDING_T compiled
+
+SQL> 
+SQL> 
+SQL> CREATE OR REPLACE TYPE BODY PriceRecord_t AS
+  2      MAP MEMBER FUNCTION percentChange RETURN NUMBER IS
+  3      BEGIN
+  4          RETURN (SELF.closePrice - SELF.openPrice) / SELF.openPrice * 100;
+  5      END;
+  6  END;
+  7  /
+
+Type Body PRICERECORD_T compiled
+
+SQL> 
+SQL> commit;
+
+Commit complete.
+
+SQL> 
+SQL> SPOOL OFF;
