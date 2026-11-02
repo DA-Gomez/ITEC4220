@@ -24,9 +24,23 @@ COLUMN price_ok        FORMAT A8
 COLUMN tracked_index   FORMAT A22
 COLUMN pct_change      FORMAT 990.00
 COLUMN expense_ratio   FORMAT 0.0000
+COLUMN exchange        FORMAT A8
 
--- Q1: query specified by the instructor
--- instructor's query
+-- Q1: query specified by the instructor (ML1 feedback)
+-- Fills of BUY orders executed in October 2026, with the client, account, ticker, exchange code, fill quantity and price,
+-- and the advisor who entered the order. Every column is reached by following REFs from the fill through its order.
+-- Order 5002 was entered by the client herself, so its advisor is blank (BR 27, 0..1)
+SELECT f.orderRef.accountRef.clientRef.name AS client,
+    f.orderRef.accountRef.accountNo AS account_no,
+    f.orderRef.securityRef.tickerSymbol AS ticker,
+    f.orderRef.securityRef.exchangeRef.code AS exchange,
+    f.quantity, f.price,
+    f.orderRef.advisorRef.name AS advisor
+FROM   Fill_obj_tab f
+WHERE  f.orderRef.side = 'BUY'
+AND    f.time >= TIMESTAMP '2026-10-01 00:00:00'
+AND    f.time <  TIMESTAMP '2026-11-01 00:00:00'
+ORDER  BY f.time;
 
 -- Q2: MAP method (PriceRecord_t.percentChange) with ORDER BY VALUE
 -- Daily price records ranked from biggest loser to biggest gainer (BR 21, 22); follows securityRef into both security tables

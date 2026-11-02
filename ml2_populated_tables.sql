@@ -5,7 +5,7 @@ SET PAGESIZE 100
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
 ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
 
--- step 5: demonstrate that every object table is populated
+-- Step 5: demonstrate that every object table is populated
 -- Tables that hold REFs are displayed by following the REFs with dot notation, not with joins.
 COLUMN name              FORMAT A28
 COLUMN email             FORMAT A36
@@ -22,6 +22,7 @@ COLUMN status            FORMAT A16
 COLUMN trackedIndex      FORMAT A22
 COLUMN sharesOutstanding FORMAT 99,999,999,999
 COLUMN expenseRatio      FORMAT 0.0000
+COLUMN exchange          FORMAT A8
 
 -- Advisor_obj_tab
 SELECT a.advisorNo, a.name, a.email, a.phone, a.registrationNo
@@ -40,15 +41,20 @@ SELECT a.accountNo, a.openingDate, a.cashBalance, a.type AS acct_type,
 FROM   Account_obj_tab a
 ORDER  BY a.accountNo;
 
--- CommonStock_obj_tab
-SELECT s.tickerSymbol, s.name, s.tradingStatus, s.sharesOutstanding,
-    s.earningsPerShare12M
+-- Exchange_obj_tab
+SELECT x.code, x.name, x.openingTime, x.closingTime
+FROM   Exchange_obj_tab x
+ORDER  BY x.code;
+
+-- CommonStock_obj_tab (follows exchangeRef)
+SELECT s.tickerSymbol, s.name, s.tradingStatus, s.exchangeRef.code AS exchange,
+    s.sharesOutstanding, s.earningsPerShare12M
 FROM   CommonStock_obj_tab s
 ORDER  BY s.tickerSymbol;
 
--- ETF_obj_tab
-SELECT e.tickerSymbol, e.name, e.tradingStatus, e.trackedIndex,
-    e.expenseRatio, e.inceptionDate
+-- ETF_obj_tab (follows exchangeRef)
+SELECT e.tickerSymbol, e.name, e.tradingStatus, e.exchangeRef.code AS exchange,
+    e.trackedIndex, e.expenseRatio, e.inceptionDate
 FROM   ETF_obj_tab e
 ORDER  BY e.tickerSymbol;
 

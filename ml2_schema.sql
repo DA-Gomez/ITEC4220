@@ -40,10 +40,20 @@ CREATE OR REPLACE TYPE Account_t AS OBJECT (
 );
 /
 
+CREATE OR REPLACE TYPE Exchange_t AS OBJECT (
+    code            VARCHAR2(10),
+    name            VARCHAR2(60),
+    openingTime     INTERVAL DAY(0) TO SECOND(0),
+    closingTime     INTERVAL DAY(0) TO SECOND(0),
+    MEMBER FUNCTION isOpen(t TIMESTAMP) RETURN VARCHAR2
+);
+/
+
 CREATE OR REPLACE TYPE Security_t AS OBJECT (
     tickerSymbol    NVARCHAR2(6),
     name            VARCHAR2(32),
     tradingStatus   VARCHAR2(20),
+    exchangeRef     REF Exchange_t,
     MEMBER FUNCTION isTradable RETURN VARCHAR2,
     NOT INSTANTIABLE MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER
 ) NOT INSTANTIABLE NOT FINAL;
@@ -132,12 +142,18 @@ CREATE TABLE Account_obj_tab OF Account_t (
     CONSTRAINT fk_account_client FOREIGN KEY (clientRef) REFERENCES Client_obj_tab
 );
 
+CREATE TABLE Exchange_obj_tab OF Exchange_t (
+    CONSTRAINT pk_exchange PRIMARY KEY (code)
+);
+
 CREATE TABLE CommonStock_obj_tab OF CommonStock_t (
-    CONSTRAINT pk_commonstock PRIMARY KEY (tickerSymbol)
+    CONSTRAINT pk_commonstock PRIMARY KEY (tickerSymbol),
+    CONSTRAINT fk_commonstock_exchange FOREIGN KEY (exchangeRef) REFERENCES Exchange_obj_tab
 );
 
 CREATE TABLE ETF_obj_tab OF ETF_t (
-    CONSTRAINT pk_etf PRIMARY KEY (tickerSymbol)
+    CONSTRAINT pk_etf PRIMARY KEY (tickerSymbol),
+    CONSTRAINT fk_etf_exchange FOREIGN KEY (exchangeRef) REFERENCES Exchange_obj_tab
 );
 
 CREATE TABLE PriceRecord_obj_tab OF PriceRecord_t (
@@ -146,7 +162,8 @@ CREATE TABLE PriceRecord_obj_tab OF PriceRecord_t (
 
 CREATE TABLE Order_obj_tab OF Order_t (
     CONSTRAINT pk_order PRIMARY KEY (orderNo),
-    CONSTRAINT fk_order_account FOREIGN KEY (accountRef) REFERENCES Account_obj_tab
+    CONSTRAINT fk_order_account FOREIGN KEY (accountRef) REFERENCES Account_obj_tab,
+    CONSTRAINT fk_order_advisor FOREIGN KEY (advisorRef) REFERENCES Advisor_obj_tab
 );
 
 CREATE TABLE Fill_obj_tab OF Fill_t (
@@ -211,6 +228,20 @@ CREATE OR REPLACE TYPE BODY Account_t AS
 END;
 /
 
+CREATE OR REPLACE TYPE BODY Exchange_t AS
+    MEMBER FUNCTION isOpen(t TIMESTAMP) RETURN VARCHAR2 IS
+        timeOfDay INTERVAL DAY TO SECOND;
+    BEGIN
+        timeOfDay := t - CAST(TRUNC(t) AS TIMESTAMP);
+        IF timeOfDay >= SELF.openingTime AND timeOfDay < SELF.closingTime THEN
+            RETURN 'TRUE';
+        ELSE
+            RETURN 'FALSE';
+        END IF;
+    END;
+END;
+/
+
 CREATE OR REPLACE TYPE BODY Security_t AS
     MEMBER FUNCTION isTradable RETURN VARCHAR2 IS
     BEGIN
@@ -228,7 +259,7 @@ CREATE OR REPLACE TYPE BODY CommonStock_t AS
     BEGIN
         RETURN 0;
     END;
-    END;
+END;
 /
 
 CREATE OR REPLACE TYPE BODY ETF_t AS

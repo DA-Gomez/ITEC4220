@@ -5,9 +5,9 @@ SET PAGESIZE 100
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
 ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
 
--- step 4: populate the object tables (3-4 objects per table)
+-- Step 4: populate the object tables (3-4 objects per table)
 -- Load order follows the REFs: a row must exist before anything
--- points at it (advisors -> clients -> accounts -> securities -> price records -> orders -> fills -> holdings)
+-- points at it (advisors -> clients -> accounts -> exchanges -> securities -> price records -> orders -> fills -> holdings)
 
 -- Advisors (BR 5)
 INSERT INTO Advisor_obj_tab VALUES (
@@ -119,12 +119,36 @@ INSERT INTO Account_obj_tab VALUES (
         (SELECT REF(c) FROM Client_obj_tab c WHERE c.clientNo = 4)
     ));
 
--- Common stocks (BR 9, 10, 17): trading status ACTIVE, HALTED or DELISTED
+-- Exchanges (BR 12, 13): core session times stored as intervals since midnight (Oracle has no TIME type)
+INSERT INTO Exchange_obj_tab VALUES (
+    Exchange_t(
+        'XNAS',
+        'Nasdaq Stock Market',
+        INTERVAL '09:30:00' HOUR TO SECOND,
+        INTERVAL '16:00:00' HOUR TO SECOND
+    ));
+INSERT INTO Exchange_obj_tab VALUES (
+    Exchange_t(
+        'XNYS',
+        'New York Stock Exchange',
+        INTERVAL '09:30:00' HOUR TO SECOND,
+        INTERVAL '16:00:00' HOUR TO SECOND
+    ));
+INSERT INTO Exchange_obj_tab VALUES (
+    Exchange_t(
+        'ARCX',
+        'NYSE Arca',
+        INTERVAL '09:30:00' HOUR TO SECOND,
+        INTERVAL '16:00:00' HOUR TO SECOND
+    ));
+
+-- Common stocks (BR 9, 10, 12, 17): trading status ACTIVE, HALTED or DELISTED
 INSERT INTO CommonStock_obj_tab VALUES (
     CommonStock_t(
         'AAPL',
         'Apple Inc.',
         'ACTIVE',
+        (SELECT REF(x) FROM Exchange_obj_tab x WHERE x.code = 'XNAS'),
         15000000000,
         6.43
     ));
@@ -133,6 +157,7 @@ INSERT INTO CommonStock_obj_tab VALUES (
         'MSFT',
         'Microsoft Corp.',
         'ACTIVE',
+        (SELECT REF(x) FROM Exchange_obj_tab x WHERE x.code = 'XNAS'),
         7430000000,
         11.80
     ));
@@ -141,16 +166,18 @@ INSERT INTO CommonStock_obj_tab VALUES (
         'TSLA',
         'Tesla Inc.',
         'HALTED',
+        (SELECT REF(x) FROM Exchange_obj_tab x WHERE x.code = 'XNAS'),
         3170000000,
         3.65
     ));
 
--- ETFs (BR 9, 10, 19): URTH is DELISTED so all three statuses appear
+-- ETFs (BR 9, 10, 12, 19): URTH is DELISTED so all three statuses appear
 INSERT INTO ETF_obj_tab VALUES (
     ETF_t(
         'QQQ',
         'Invesco QQQ Trust',
         'ACTIVE',
+        (SELECT REF(x) FROM Exchange_obj_tab x WHERE x.code = 'XNAS'),
         'NASDAQ-100',
         0.0020,
         DATE '1999-03-10'
@@ -160,6 +187,7 @@ INSERT INTO ETF_obj_tab VALUES (
         'VTI',
         'Vanguard Total Stock Market',
         'ACTIVE',
+        (SELECT REF(x) FROM Exchange_obj_tab x WHERE x.code = 'ARCX'),
         'CRSP US Total Market',
         0.0003,
         DATE '2001-05-24'
@@ -169,6 +197,7 @@ INSERT INTO ETF_obj_tab VALUES (
         'URTH',
         'iShares MSCI World ETF',
         'DELISTED',
+        (SELECT REF(x) FROM Exchange_obj_tab x WHERE x.code = 'ARCX'),
         'MSCI World',
         0.0024,
         DATE '2012-01-10'
@@ -222,13 +251,14 @@ INSERT INTO PriceRecord_obj_tab VALUES (
 
 -- Orders (BR 7, 8, 11, 23-28): only ACTIVE accounts, only ACTIVE securities; limit price only on LIMIT orders; order 5002 was
 -- entered by the client herself, so no advisor is recorded (0..1)
+-- Order 5001 was placed in September 2026, so Q1's October filter excludes its fill.
 INSERT INTO Order_obj_tab VALUES (
     Order_t(
         5001,
         'BUY',
         'LIMIT',
         100,
-        TIMESTAMP '2026-10-26 09:35:00',
+        TIMESTAMP '2026-09-28 09:35:00',
         9.99,
         'FILLED',
         225.50,
@@ -285,7 +315,7 @@ INSERT INTO Fill_obj_tab VALUES (
         9001,
         100,
         225.30,
-        TIMESTAMP '2026-10-26 09:36:12',
+        TIMESTAMP '2026-09-28 09:36:12',
         (SELECT REF(o) FROM Order_obj_tab o WHERE o.orderNo = 5001)
     ));
 INSERT INTO Fill_obj_tab VALUES (
@@ -313,7 +343,7 @@ INSERT INTO Fill_obj_tab VALUES (
         (SELECT REF(o) FROM Order_obj_tab o WHERE o.orderNo = 5004)
     ));
 
--- Holdings (BR 28, 34, 35): the MSFT average cost is the weighteaverage of fills 9002 and 9003; the QQQ holding (400) covers the
+-- Holdings (BR 28, 34, 35): the MSFT average cost is the weighted average of fills 9002 and 9003; the QQQ holding (400) covers the
 -- open sell order for 200
 INSERT INTO Holding_obj_tab VALUES (
     Holding_t(
