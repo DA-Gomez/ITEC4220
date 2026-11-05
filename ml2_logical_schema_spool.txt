@@ -47,14 +47,27 @@ SQL> CREATE OR REPLACE TYPE Account_t AS OBJECT (
 Type ACCOUNT_T compiled
 
 SQL> 
+SQL> CREATE OR REPLACE TYPE Exchange_t AS OBJECT (
+  2      code            VARCHAR2(10),
+  3      name            VARCHAR2(60),
+  4      openingTime     INTERVAL DAY(0) TO SECOND(0),
+  5      closingTime     INTERVAL DAY(0) TO SECOND(0),
+  6      MEMBER FUNCTION isOpen(t TIMESTAMP) RETURN VARCHAR2
+  7  );
+  8  /
+
+Type EXCHANGE_T compiled
+
+SQL> 
 SQL> CREATE OR REPLACE TYPE Security_t AS OBJECT (
   2      tickerSymbol    NVARCHAR2(6),
   3      name            VARCHAR2(32),
   4      tradingStatus   VARCHAR2(20),
-  5      MEMBER FUNCTION isTradable RETURN VARCHAR2,
-  6      NOT INSTANTIABLE MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER
-  7  ) NOT INSTANTIABLE NOT FINAL;
-  8  /
+  5      exchangeRef     REF Exchange_t,
+  6      MEMBER FUNCTION isTradable RETURN VARCHAR2,
+  7      NOT INSTANTIABLE MEMBER FUNCTION yearlyFee(amount NUMBER) RETURN NUMBER
+  8  ) NOT INSTANTIABLE NOT FINAL;
+  9  /
 
 Type SECURITY_T compiled
 
@@ -169,16 +182,25 @@ SQL> CREATE TABLE Account_obj_tab OF Account_t (
 Table ACCOUNT_OBJ_TAB created.
 
 SQL> 
-SQL> CREATE TABLE CommonStock_obj_tab OF CommonStock_t (
-  2      CONSTRAINT pk_commonstock PRIMARY KEY (tickerSymbol)
+SQL> CREATE TABLE Exchange_obj_tab OF Exchange_t (
+  2      CONSTRAINT pk_exchange PRIMARY KEY (code)
   3  );
+
+Table EXCHANGE_OBJ_TAB created.
+
+SQL> 
+SQL> CREATE TABLE CommonStock_obj_tab OF CommonStock_t (
+  2      CONSTRAINT pk_commonstock PRIMARY KEY (tickerSymbol),
+  3      CONSTRAINT fk_commonstock_exchange FOREIGN KEY (exchangeRef) REFERENCES Exchange_obj_tab
+  4  );
 
 Table COMMONSTOCK_OBJ_TAB created.
 
 SQL> 
 SQL> CREATE TABLE ETF_obj_tab OF ETF_t (
-  2      CONSTRAINT pk_etf PRIMARY KEY (tickerSymbol)
-  3  );
+  2      CONSTRAINT pk_etf PRIMARY KEY (tickerSymbol),
+  3      CONSTRAINT fk_etf_exchange FOREIGN KEY (exchangeRef) REFERENCES Exchange_obj_tab
+  4  );
 
 Table ETF_OBJ_TAB created.
 
@@ -192,8 +214,9 @@ Table PRICERECORD_OBJ_TAB created.
 SQL> 
 SQL> CREATE TABLE Order_obj_tab OF Order_t (
   2      CONSTRAINT pk_order PRIMARY KEY (orderNo),
-  3      CONSTRAINT fk_order_account FOREIGN KEY (accountRef) REFERENCES Account_obj_tab
-  4  );
+  3      CONSTRAINT fk_order_account FOREIGN KEY (accountRef) REFERENCES Account_obj_tab,
+  4      CONSTRAINT fk_order_advisor FOREIGN KEY (advisorRef) REFERENCES Advisor_obj_tab
+  5  );
 
 Table ORDER_OBJ_TAB created.
 
@@ -272,6 +295,23 @@ SQL> CREATE OR REPLACE TYPE BODY Account_t AS
 Type Body ACCOUNT_T compiled
 
 SQL> 
+SQL> CREATE OR REPLACE TYPE BODY Exchange_t AS
+  2      MEMBER FUNCTION isOpen(t TIMESTAMP) RETURN VARCHAR2 IS
+  3          timeOfDay INTERVAL DAY TO SECOND;
+  4      BEGIN
+  5          timeOfDay := t - CAST(TRUNC(t) AS TIMESTAMP);
+  6          IF timeOfDay >= SELF.openingTime AND timeOfDay < SELF.closingTime THEN
+  7              RETURN 'TRUE';
+  8          ELSE
+  9              RETURN 'FALSE';
+ 10          END IF;
+ 11      END;
+ 12  END;
+ 13  /
+
+Type Body EXCHANGE_T compiled
+
+SQL> 
 SQL> CREATE OR REPLACE TYPE BODY Security_t AS
   2      MEMBER FUNCTION isTradable RETURN VARCHAR2 IS
   3      BEGIN
@@ -292,7 +332,7 @@ SQL> CREATE OR REPLACE TYPE BODY CommonStock_t AS
   3      BEGIN
   4          RETURN 0;
   5      END;
-  6      END;
+  6  END;
   7  /
 
 Type Body COMMONSTOCK_T compiled

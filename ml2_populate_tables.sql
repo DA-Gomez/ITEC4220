@@ -6,8 +6,7 @@ ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
 ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
 
 -- Step 4: populate the object tables (3-4 objects per table)
--- Load order follows the REFs: a row must exist before anything
--- points at it (advisors -> clients -> accounts -> exchanges -> securities -> price records -> orders -> fills -> holdings)
+-- Load order follows the REFs: (advisors -> clients -> accounts -> exchanges -> securities -> price records -> orders -> fills -> holdings)
 
 -- Advisors (BR 5)
 INSERT INTO Advisor_obj_tab VALUES (
@@ -35,7 +34,7 @@ INSERT INTO Advisor_obj_tab VALUES (
         'REG-10057'
     ));
 
--- Clients (BR 2, 3, 4): all 18+, exactly one advisor each, risk tolerance is LOW, MEDIUM or HIGH
+-- Clients (BR 2, 3, 4)
 INSERT INTO Client_obj_tab VALUES (
     Client_t(
         1,
@@ -81,7 +80,7 @@ INSERT INTO Client_obj_tab VALUES (
         (SELECT REF(a) FROM Advisor_obj_tab a WHERE a.advisorNo = 3)
     ));
 
--- Accounts (BR 1, 6): type is CASH, TFSA or RRSP; status is ACTIVE, FROZEN or CLOSED; every client owns at least one
+-- Accounts (BR 1, 6)
 INSERT INTO Account_obj_tab VALUES (
     Account_t(
         1001,
@@ -119,7 +118,7 @@ INSERT INTO Account_obj_tab VALUES (
         (SELECT REF(c) FROM Client_obj_tab c WHERE c.clientNo = 4)
     ));
 
--- Exchanges (BR 12, 13): core session times stored as intervals since midnight (Oracle has no TIME type)
+-- Exchanges (BR 12, 13)
 INSERT INTO Exchange_obj_tab VALUES (
     Exchange_t(
         'XNAS',
@@ -142,7 +141,7 @@ INSERT INTO Exchange_obj_tab VALUES (
         INTERVAL '16:00:00' HOUR TO SECOND
     ));
 
--- Common stocks (BR 9, 10, 12, 17): trading status ACTIVE, HALTED or DELISTED
+-- Common stocks (BR 9, 10, 12, 17)
 INSERT INTO CommonStock_obj_tab VALUES (
     CommonStock_t(
         'AAPL',
@@ -171,7 +170,7 @@ INSERT INTO CommonStock_obj_tab VALUES (
         3.65
     ));
 
--- ETFs (BR 9, 10, 12, 19): URTH is DELISTED so all three statuses appear
+-- ETFs (BR 9, 10, 12, 19)
 INSERT INTO ETF_obj_tab VALUES (
     ETF_t(
         'QQQ',
@@ -203,7 +202,7 @@ INSERT INTO ETF_obj_tab VALUES (
         DATE '2012-01-10'
     ));
 
--- Price records (BR 21): one record per ACTIVE security for the trading day 2026-10-30 (TSLA is halted and URTH delisted, so none)
+-- Price records (BR 21)
 INSERT INTO PriceRecord_obj_tab VALUES (
     PriceRecord_t(
         1,
@@ -249,9 +248,8 @@ INSERT INTO PriceRecord_obj_tab VALUES (
         (SELECT REF(e) FROM ETF_obj_tab e WHERE e.tickerSymbol = 'VTI')
     ));
 
--- Orders (BR 7, 8, 11, 23-28): only ACTIVE accounts, only ACTIVE securities; limit price only on LIMIT orders; order 5002 was
--- entered by the client herself, so no advisor is recorded (0..1)
--- Order 5001 was placed in September 2026, so Q1's October filter excludes its fill.
+-- Orders (BR 7, 8, 11, 23-28)
+-- Order 5001 was placed in September 2026, so Q1's October filter excludes its fill
 INSERT INTO Order_obj_tab VALUES (
     Order_t(
         5001,
@@ -266,6 +264,7 @@ INSERT INTO Order_obj_tab VALUES (
         (SELECT REF(s) FROM CommonStock_obj_tab s WHERE s.tickerSymbol = 'AAPL'),
         (SELECT REF(v) FROM Advisor_obj_tab v WHERE v.advisorNo = 1)
     ));
+--order 5002 entered by the client itself, so no advisor is recorded (0..1)
 INSERT INTO Order_obj_tab VALUES (
     Order_t(
         5002,
@@ -309,7 +308,7 @@ INSERT INTO Order_obj_tab VALUES (
         (SELECT REF(v) FROM Advisor_obj_tab v WHERE v.advisorNo = 2)
     ));
 
--- Fills (BR 26, 29-32): buy-limit fills at or below the limit price; total filled never exceeds the quantity ordered (5002: 42 of 50)
+-- Fills (BR 26, 29-32)
 INSERT INTO Fill_obj_tab VALUES (
     Fill_t(
         9001,
@@ -343,8 +342,7 @@ INSERT INTO Fill_obj_tab VALUES (
         (SELECT REF(o) FROM Order_obj_tab o WHERE o.orderNo = 5004)
     ));
 
--- Holdings (BR 28, 34, 35): the MSFT average cost is the weighted average of fills 9002 and 9003; the QQQ holding (400) covers the
--- open sell order for 200
+-- Holdings (BR 28, 34, 35)
 INSERT INTO Holding_obj_tab VALUES (
     Holding_t(
         1,

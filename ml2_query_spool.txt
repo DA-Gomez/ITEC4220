@@ -28,9 +28,30 @@ SQL> COLUMN price_ok        FORMAT A8
 SQL> COLUMN tracked_index   FORMAT A22
 SQL> COLUMN pct_change      FORMAT 990.00
 SQL> COLUMN expense_ratio   FORMAT 0.0000
+SQL> COLUMN exchange        FORMAT A8
 SQL> 
-SQL> -- Q1: query specified by the instructor
-SQL> -- instructor's query
+SQL> -- Q1: query specified by the instructor (ML1 feedback)
+SQL> -- Fills of BUY orders executed in October 2026, with the client, account, ticker, exchange code, fill quantity and price,
+SQL> -- and the advisor who entered the order. Every column is reached by following REFs from the fill through its order.
+SQL> -- Order 5002 was entered by the client herself, so its advisor is blank (BR 27, 0..1)
+SQL> SELECT f.orderRef.accountRef.clientRef.name AS client,
+  2      f.orderRef.accountRef.accountNo AS account_no,
+  3      f.orderRef.securityRef.tickerSymbol AS ticker,
+  4      f.orderRef.securityRef.exchangeRef.code AS exchange,
+  5      f.quantity, f.price,
+  6      f.orderRef.advisorRef.name AS advisor
+  7  FROM   Fill_obj_tab f
+  8  WHERE  f.orderRef.side = 'BUY'
+  9  AND    f.time >= TIMESTAMP '2026-10-01 00:00:00'
+ 10  AND    f.time <  TIMESTAMP '2026-11-01 00:00:00'
+ 11  ORDER  BY f.time;
+
+CLIENT          ACCOUNT_NO TICKER EXCHANGE   QUANTITY      PRICE ADVISOR        
+--------------- ---------- ------ -------- ---------- ---------- ---------------
+Sofia Ramirez         1002 MSFT   XNAS             30     410.15                
+Sofia Ramirez         1002 MSFT   XNAS             12      410.4                
+James Okafor          1003 VTI    ARCX             75      269.8 Marcus Chen    
+
 SQL> 
 SQL> -- Q2: MAP method (PriceRecord_t.percentChange) with ORDER BY VALUE
 SQL> -- Daily price records ranked from biggest loser to biggest gainer (BR 21, 22); follows securityRef into both security tables
@@ -40,12 +61,12 @@ SQL> SELECT p.securityRef.tickerSymbol AS ticker, p.securityRef.name AS security
   4  FROM   PriceRecord_obj_tab p
   5  ORDER  BY VALUE(p);
 
-TICKER SECURITY_NAME                TRADINGDAT  OPENPRICE CLOSEPRICE PCT_CHANGE
------- ---------------------------- ---------- ---------- ---------- ----------
-MSFT   Microsoft Corp.              2026-10-30        414      411.2      -0.68
-VTI    Vanguard Total Stock Market  2026-10-30      271.4     270.95      -0.17
-QQQ    Invesco QQQ Trust            2026-10-30      444.2     446.85       0.60
-AAPL   Apple Inc.                   2026-10-30      226.1     228.45       1.04
+TICKER SECURITY_NAME                TRADINGDA  OPENPRICE CLOSEPRICE PCT_CHANGE
+------ ---------------------------- --------- ---------- ---------- ----------
+MSFT   Microsoft Corp.              30-OCT-26        414      411.2      -0.68
+VTI    Vanguard Total Stock Market  30-OCT-26      271.4     270.95      -0.17
+QQQ    Invesco QQQ Trust            30-OCT-26      444.2     446.85       0.60
+AAPL   Apple Inc.                   30-OCT-26      226.1     228.45       1.04
 
 SQL> 
 SQL> -- Q3: ORDER method (Client_t.compareRisk) with ORDER BY VALUE
@@ -55,12 +76,12 @@ SQL> SELECT c.name AS client, c.riskTolerance, c.dateOfBirth,
   3  FROM   Client_obj_tab c
   4  ORDER  BY VALUE(c);
 
-CLIENT          RISKTOLERANCE DATEOFBIRT ADVISOR        
---------------- ------------- ---------- ---------------
-James Okafor    LOW           1975-07-23 Marcus Chen    
-Daniel Foster   MEDIUM        1980-05-14 Laura Bennett  
-Emily Tran      MEDIUM        2001-01-30 Priya Nair     
-Sofia Ramirez   HIGH          1992-11-02 Laura Bennett  
+CLIENT          RISKTOLERANCE DATEOFBIR ADVISOR        
+--------------- ------------- --------- ---------------
+James Okafor    LOW           23-JUL-75 Marcus Chen    
+Daniel Foster   MEDIUM        14-MAY-80 Laura Bennett  
+Emily Tran      MEDIUM        30-JAN-01 Priya Nair     
+Sofia Ramirez   HIGH          02-NOV-92 Laura Bennett  
 
 SQL> 
 SQL> -- Q4: overridden method (Security_t.yearlyFee, overridden in CommonStock_t and ETF_t)

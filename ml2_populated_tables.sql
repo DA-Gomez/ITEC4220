@@ -6,7 +6,6 @@ ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
 ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
 
 -- Step 5: demonstrate that every object table is populated
--- Tables that hold REFs are displayed by following the REFs with dot notation, not with joins.
 COLUMN name              FORMAT A28
 COLUMN email             FORMAT A36
 COLUMN phone             FORMAT A12
