@@ -5,6 +5,24 @@ SET PAGESIZE 100
 ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
 ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
 
+COLUMN client          FORMAT A15
+COLUMN advisor         FORMAT A15
+COLUMN ticker          FORMAT A6
+COLUMN security_name   FORMAT A28
+COLUMN riskTolerance   FORMAT A13
+COLUMN acct_type       FORMAT A9
+COLUMN status          FORMAT A16
+COLUMN side            FORMAT A4
+COLUMN order_type      FORMAT A10
+COLUMN adult           FORMAT A5
+COLUMN can_trade       FORMAT A9
+COLUMN covers_10k      FORMAT A10
+COLUMN price_ok        FORMAT A8
+COLUMN tracked_index   FORMAT A22
+COLUMN pct_change      FORMAT 990.00
+COLUMN expense_ratio   FORMAT 0.0000
+COLUMN exchange        FORMAT A8
+
 -- Query 1
 SELECT f.orderRef.accountRef.clientRef.name AS client,
     f.orderRef.accountRef.accountNo AS account_no,

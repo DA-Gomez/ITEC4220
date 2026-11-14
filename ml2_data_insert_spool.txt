@@ -10,8 +10,7 @@ Session altered.
 
 SQL> 
 SQL> -- Step 4: populate the object tables (3-4 objects per table)
-SQL> -- Load order follows the REFs: a row must exist before anything
-SQL> -- points at it (advisors -> clients -> accounts -> exchanges -> securities -> price records -> orders -> fills -> holdings)
+SQL> -- Load order follows the REFs: (advisors -> clients -> accounts -> exchanges -> securities -> price records -> orders -> fills -> holdings)
 SQL> 
 SQL> -- Advisors (BR 5)
 SQL> INSERT INTO Advisor_obj_tab VALUES (
@@ -48,7 +47,7 @@ SQL> INSERT INTO Advisor_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Clients (BR 2, 3, 4): all 18+, exactly one advisor each, risk tolerance is LOW, MEDIUM or HIGH
+SQL> -- Clients (BR 2, 3, 4)
 SQL> INSERT INTO Client_obj_tab VALUES (
   2      Client_t(
   3          1,
@@ -106,7 +105,7 @@ SQL> INSERT INTO Client_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Accounts (BR 1, 6): type is CASH, TFSA or RRSP; status is ACTIVE, FROZEN or CLOSED; every client owns at least one
+SQL> -- Accounts (BR 1, 6)
 SQL> INSERT INTO Account_obj_tab VALUES (
   2      Account_t(
   3          1001,
@@ -156,7 +155,7 @@ SQL> INSERT INTO Account_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Exchanges (BR 12, 13): core session times stored as intervals since midnight (Oracle has no TIME type)
+SQL> -- Exchanges (BR 12, 13)
 SQL> INSERT INTO Exchange_obj_tab VALUES (
   2      Exchange_t(
   3          'XNAS',
@@ -188,7 +187,7 @@ SQL> INSERT INTO Exchange_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Common stocks (BR 9, 10, 12, 17): trading status ACTIVE, HALTED or DELISTED
+SQL> -- Common stocks (BR 9, 10, 12, 17)
 SQL> INSERT INTO CommonStock_obj_tab VALUES (
   2      CommonStock_t(
   3          'AAPL',
@@ -226,7 +225,7 @@ SQL> INSERT INTO CommonStock_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- ETFs (BR 9, 10, 12, 19): URTH is DELISTED so all three statuses appear
+SQL> -- ETFs (BR 9, 10, 12, 19)
 SQL> INSERT INTO ETF_obj_tab VALUES (
   2      ETF_t(
   3          'QQQ',
@@ -267,7 +266,7 @@ SQL> INSERT INTO ETF_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Price records (BR 21): one record per ACTIVE security for the trading day 2026-10-30 (TSLA is halted and URTH delisted, so none)
+SQL> -- Price records (BR 21)
 SQL> INSERT INTO PriceRecord_obj_tab VALUES (
   2      PriceRecord_t(
   3          1,
@@ -325,9 +324,8 @@ SQL> INSERT INTO PriceRecord_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Orders (BR 7, 8, 11, 23-28): only ACTIVE accounts, only ACTIVE securities; limit price only on LIMIT orders; order 5002 was
-SQL> -- entered by the client herself, so no advisor is recorded (0..1)
-SQL> -- Order 5001 was placed in September 2026, so Q1's October filter excludes its fill.
+SQL> -- Orders (BR 7, 8, 11, 23-28)
+SQL> -- Order 5001 was placed in September 2026, so Q1's October filter excludes its fill
 SQL> INSERT INTO Order_obj_tab VALUES (
   2      Order_t(
   3          5001,
@@ -345,6 +343,7 @@ SQL> INSERT INTO Order_obj_tab VALUES (
 
 1 row inserted.
 
+SQL> --order 5002 entered by the client itself, so no advisor is recorded (0..1)
 SQL> INSERT INTO Order_obj_tab VALUES (
   2      Order_t(
   3          5002,
@@ -397,7 +396,7 @@ SQL> INSERT INTO Order_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Fills (BR 26, 29-32): buy-limit fills at or below the limit price; total filled never exceeds the quantity ordered (5002: 42 of 50)
+SQL> -- Fills (BR 26, 29-32)
 SQL> INSERT INTO Fill_obj_tab VALUES (
   2      Fill_t(
   3          9001,
@@ -443,8 +442,7 @@ SQL> INSERT INTO Fill_obj_tab VALUES (
 1 row inserted.
 
 SQL> 
-SQL> -- Holdings (BR 28, 34, 35): the MSFT average cost is the weighted average of fills 9002 and 9003; the QQQ holding (400) covers the
-SQL> -- open sell order for 200
+SQL> -- Holdings (BR 28, 34, 35)
 SQL> INSERT INTO Holding_obj_tab VALUES (
   2      Holding_t(
   3          1,
@@ -512,7 +510,6 @@ Session altered.
 
 SQL> 
 SQL> -- Step 5: demonstrate that every object table is populated
-SQL> -- Tables that hold REFs are displayed by following the REFs with dot notation, not with joins.
 SQL> COLUMN name              FORMAT A28
 SQL> COLUMN email             FORMAT A36
 SQL> COLUMN phone             FORMAT A12
